@@ -1,0 +1,65 @@
+//@author: vux
+//@help: template for texture fx
+//@tags: texture
+//@credits: 
+
+Texture2D texture2d : PREVIOUS;
+Texture2D frameDelay;
+
+float treshold = 0.5;
+float blend = 0.1;
+
+bool reset = false;
+
+bool write = true;
+
+SamplerState linearSampler : IMMUTABLE
+{
+    Filter = MIN_MAG_MIP_LINEAR;
+    AddressU = Clamp;
+    AddressV = Clamp;
+};
+
+struct psInput
+{
+	float4 p : SV_Position;
+	float2 uv : TEXCOORD0;
+};
+
+float remap(float input, float min0, float max0, float min1, float max1){
+	return (((input - min0) / (max0 - min0)) * (max1 - min1)) + min1;
+}
+
+
+float4 PS(psInput input) : SV_Target
+{
+	float4 c = texture2d.Sample(linearSampler,input.uv);
+	float4 d = frameDelay.Sample(linearSampler,input.uv);
+		
+	d.a *= 0.999;
+	/*
+	float4 mask = float4(1, 0, 0, 1);
+	if(c.g > c.r) mask = float4(0, 1, 0, 1);
+	if(c.b > c.g) mask = float4(0, 0, 1, 1);
+	c *= mask;
+	*/
+	float brightness = max(max(c.r, c.g), c.b);		
+	c.a = remap(brightness, treshold, treshold + blend, 0, 1);	
+	
+	if(reset) d = 0; 
+	
+	if(write) return max(c, d);
+	
+	return d;
+}
+
+technique10 Process
+{
+	pass P0
+	{
+		SetPixelShader(CompileShader(ps_4_0,PS()));
+	}
+}
+
+
+
